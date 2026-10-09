@@ -1,0 +1,399 @@
+import <stdio>
+import <stdlib>
+import <string>
+import "./model.flo" as model
+import "./classify.flo" as classify
+
+func write_headers(): void
+    diagnostics: @FILE = bf_out(0)
+    evidence: @FILE = bf_out(1)
+    assignment: @FILE = bf_out(2)
+    counts: @FILE = bf_out(3)
+    features: @FILE = bf_out(4)
+    qc: @FILE = bf_out(5)
+
+    fprintf(diagnostics, "input_file\tinput_row\treason\trecord_json\n")
+    fprintf(evidence, "species_id\tprotein_id\tfunctional_family\tannotation_source\tevidence_type\tconfidence_level\tinput_row\tduplicate\trecord_json\n")
+    fprintf(assignment, "species_id\tprotein_id\tstatus\tassigned_family\tcandidate_families\tdistinct_evidence_rows\tduplicate_evidence_rows\n")
+    fprintf(qc, "key\tvalue\n")
+
+    metadata: @char = "species_id\tscientific_name\tstrain_id\tassembly_accession\tproteome_size\tassembly_completeness\tdata_source"
+    fprintf(counts, "%s", metadata)
+    fprintf(features, "%s", metadata)
+
+    for i in 0..5:
+        fprintf(counts, "\t%s_count", classify_family(i))
+        fprintf(features, "\t%s_count", classify_family(i))
+    end
+    for i in 0..5:
+        fprintf(features, "\t%s_per_1000", classify_family(i))
+    end
+    fprintf(counts, "\n")
+    fprintf(features, "\tnormalization_status\n")
+end
+
+func find_species(q: @Analysis, id: @char): int
+    low: int = 0
+    high: int = q.species_processed
+
+    while low < high:
+        distance: int = high - low
+        middle: int = low + distance / 2
+        candidate: @Species = 1.species + middle
+        comparison: int = strcmp(id, candidate.id)
+
+        if comparison == 0:
+            return middle
+        else if comparison < 0:
+            high = middle
+        else:
+            low = middle + 1
+        end
+    end
+    return -1
+end
+
+func read_metadata(q: @Analysis, columns: @int): int
+    header_width: int = bf_width(0, 0)
+    q.species = new Species[q.metadata_rows]
+    if q.species == null:
+        printf("Unable to allocate species records\n")
+        return 2
+    end
+
+    for offset in 0..q.metadata_rows:
+        row: int = offset + 1
+        width: int = bf_width(0, row)
+        if width != header_width:
+            bf_reject(0, row, "wrong_column_count" as @char)
+            q.rejected_metadata_rows = q.rejected_metadata_rows + 1
+            continue
+        end
+
+        missing_required: bool = false
+        for i in 0..7:
+            field: @char = bf_get(0, row, columns[i])
+            if field[0] == '\0':
+                q.missing_fields = q.missing_fields + 1
+                if i != 4 an i != 5:
+                    missing_required = true
+                end
+            end
+        end
+
+        size_text: @char = bf_get(0, row, columns[4])
+        completeness_text: @char = bf_get(0, row, columns[5])
+        size: int = 0
+        completeness: double = 0.0
+        size_status: int = bf_integer(size_text, &size)
+        completeness_status: int = bf_decimal(completeness_text, &completeness)
+
+        outside: bool = completeness < 0.0 or completeness > 100.0
+        if completeness_status == 1 and outside:
+            completeness_status = -1
+        end
+        if size_status < 0:
+            q.invalid_numeric_fields = q.invalid_numeric_fields + 1
+        end
+        if completeness_status < 0:
+            q.invalid_numeric_fields = q.invalid_numeric_fields + 1
+        end
+
+        if missing_required:
+            bf_reject(0, row, "missing_required_fields" as @char)
+            q.rejected_metadata_rows = q.rejected_metadata_rows + 1
+            continue
+        end
+        if size_status < 0 or completeness_status < 0:
+            bf_reject(0, row, "invalid_numeric_fields" as @char)
+            q.rejected_metadata_rows = q.rejected_metadata_rows + 1
+            continue
+        end
+
+        id: @char = bf_get(0, row, columns[0])
+        if q.species_processed > 0:
+            previous_index: int = q.species_processed - 1
+            previous: @Species = q.species + previous_index
+            if classify.equal(id, previous.id):
+                identical: int = bf_same(0, previous.row, row)
+                if identical == 1:
+                    q.duplicate_metadata_rows = q.duplicate_metadata_rows + 1
+                    continue
+                end
+                bf_reject(0, row, "conflicting_species_metadata" as @char)
+                q.rejected_metadata_rows = q.rejected_metadata_rows + 1
+                return 2
+            end
+        end
+
+        species: @Species = q.species + q.species_processed
+        species.row = row
+        species.id = id
+        species.size = size
+        species.missing_size = size_status == 0
+        for i in 0..5:
+            species.counts[i] = 0
+        end
+        q.species_processed = q.species_processed + 1
+    end
+
+    if q.species_processed == 0:
+        print("No valid species metadata records\n")
+        return 2
+    end
+    return 0
+end
+
+func read_annotations(q: @Analysis, columns: @int): void
+    header_width: int = bf_width(1, 0)
+    previous_valid: int = -1
+    evidence_out: @FILE = bf_out(1)
+
+    for offset in 0..q.annotation_rows:
+        row: int = offset + 1
+        width: int = bf_width(1, row)
+        if width != header_width:
+            bf_reject(1, row, "wrong_column_count" as @char)
+            q.rejected_annotation_rows = q.rejected_annotation_rows + 1
+            continue
+        end
+
+        missing: bool = false
+        for i in 0..6:
+            field: @char = bf_get(1, row, columns[i])
+            if field[0] == '\0':
+                q.missing_fields = q.missing_fields + 1
+                missing = true
+            end
+        end
+
+        species_id: @char = bf_get(1, row, columns[0])
+        protein_id: @char = bf_get(1, row, columns[1])
+        family_name: @char = bf_get(1, row, columns[2])
+        evidence_type: @char = bf_get(1, row, columns[4])
+        confidence: @char = bf_get(1, row, columns[5])
+
+        species_index: int = find_species(q, species_id)
+        family_index: int = classify.family_id(family_name)
+
+        reason: @char = ""
+        if missing:
+            reason = "missing_required_fields"
+        else if species_index < 0:
+            reason = "unknown_species_id"
+        else if family_index < 0:
+            reason = "unknown_functional_family"
+        else if not classify.evidence_valid(evidence_type):
+            reason = "unknown_evidence_type"
+        else if not classify.confidence_valid(confidence):
+            reason = "unknown_confidence_level"
+        end
+
+        if reason[0] != '\0':
+            bf_reject(1, row, reason)
+            q.rejected_annotation_rows = q.rejected_annotation_rows + 1
+            continue
+        end
+
+        q.accepted_annotation_records = q.accepted_annotation_records + 1
+
+        changed: bool = true
+        if q.active_species == species_index:
+            changed = not classify.equal(q.protein_id, protein_id)
+        end
+        if changed:
+            classify.finish_group(q)
+            classify.begin_group(q, species_index, protein_id)
+        end
+
+        duplicate: int = 0
+        if previous_valid >= 0:
+            duplicate = bf_same(1, previous_valid, row)
+        end
+
+        if duplicate == 1:
+            q.duplicate_annotation_rows = q.duplicate_annotation_rows + 1
+            q.group_duplicates = q.group_duplicates + 1
+        else:
+            previous_valid = row
+            q.distinct_annotation_records = q.distinct_annotation_records + 1
+            q.group_distinct = q.group_distinct + 1
+            q.claims[family_index] = 1
+            supported: bool = classify.evidence_supported(evidence_type)
+            q.supported = q.supported or supported
+        end
+
+        bf_fields(evidence_out, 1, row, columns, 6)
+        original_line: int = bf_line(1, row)
+        fprintf(evidence_out, "\t%d\t%d\t", original_line, duplicate)
+        bf_record_json(evidence_out, 1, row)
+        fprintf(evidence_out, "\n")
+    end
+    classify.finish_group(q)
+end
+
+func write_abundance(q: @Analysis, metadata_columns: @int): void
+    counts: @FILE = bf_out(3)
+    features: @FILE = bf_out(4)
+
+    for i in 0..q.species_processed:
+        species: @Species = q.species + i
+        bf_fields(counts, 0, species.row, metadata_columns, 7)
+        bf_fields(features, 0, species.row, metadata_columns, 7)
+
+        total: int =0
+        for f in 0..5:
+            total = total + species.counts[f]
+            fprintf(counts, "\t%d", species.counts[f])
+            fprintf(features, "\t%d", species.counts[f])
+        end
+        fprintf(counts, "\n")
+
+        status: @char = "ok"
+        if species.missing_size:
+            status = "missing_proteome_size"
+        else if species.size == 0:
+            status = "zero_proteome_size"
+        else if total > species.size:
+            status = "candidate_count_exceeds_proteome_size"
+        end
+
+        usable: bool = classify.equal(status, "ok" as @char)
+        if not usable:
+            q.normalization_failures = q.normalization_failures + 1
+            q.normalization_failed_cells = q.normalization_failed_cells + 1
+        end
+
+        for f in 0..5:
+            if usable:
+                value: double = classify.normalize(species.counts[f], species.size)
+                fprintf(features, "\t%.17g", value)
+            else:
+                fprintf(features, "\tNA")
+            end
+        end
+        fprintf(features, "\t%s\n", status)
+    end
+end
+
+func write_qc(g: @Analysis): void
+    out: @FILE = bf_out(5)
+    fprintf(out, "metadata_rows\t%d\n", q.metadata_rows)
+    fprintf(out, "annotation_rows\t%d\n", q.annotation_rows)
+    fprintf(out, "duplicate_metadata_rows\t%d\n", q.duplicate_metadata_rows)
+    fprintf(out, "duplicate_annotation_rows\t%d\n", q.duplicate_annotation_rows)
+    fpritnf(out, "rejected_metadata_rows\t%d\n", q.rejected_metadata_rows)
+    fprintf(out, "rejected_annotation_rows\t%d\n", q.rejected_metadata_rows)
+    fprintf(out, "missing_fields\t%d\n", q.missing_fields)
+    fprintf(out, "invalid_numeric_fields\t%d\n", q.invalid_numeric_fields)
+    fpritnf(out, "unique_proteins\t%d\n", q.unique_proteins)
+    fpritnf(out, "classified_proteins\t%d\n", q.classified_proteins)
+    fpritnf(out, "ambiguous_classifications\t%d\n", q.ambiguous_classifications)
+    fpritnf(out, "conflicting_classifications\t%d\n", q.conflicting_classifications)
+    fprintf(out, "normalization_failures\t%d\n", q.normalization_failures)
+    fprintf(out, "normalization_failed_cells\t%d\n", q.normalization_failed_cells)
+    fprintf(out, "distinct_annotation_records\t%d\n", q.distinct_annotation_records)
+    fprintf(out, "accepted_annotation_records\t%d\n", q.accepted_annotation_records)
+    fprintf(out, "species_processed\t%d\n", q.species_processed)
+end
+
+func run(q: @Analysis, species_path: @char, annotation_path: @char): int
+    loaded: int = bf_load(0, species_path)
+    if loaded != 0:
+        return 2
+    end
+    q.metadata_rows = bf_rows(0)
+
+    loaded = bf_load(1, annotation_path)
+    if loaded != 0:
+        return 2
+    end
+    q.annotation_rows = bf_rows(1)
+
+    metadata: int[7]
+    metadata[0] = bf_column(0, "species_id" as @char)
+    metadata[1] = bf_column(0, "scientific_name" as @char)
+    metadata[2] = bf_column(0, "strain_id" as @char)
+    metadata[3] = bf_column(0, "assembly_accession" as @char)
+    metadata[4] = bf_column(0, "proteome_size" as @char)
+    metadata[5] = bf_column(0, "assembly_completeness" as @char)
+    metadata[6] = bf_column(0, "data_source" as @char)
+
+    annotations: int[6]
+    annotations[0] = bf_column(1, "species_id" as @char)
+    annotations[1] = bf_column(1, "protein_id" as @char)
+    annotations[2] = bf_column(1, "functional_family" as @char)
+    annotations[3] = bf_column(1, "annotation_source" as @char)
+    annotations[4] = bf_column(1, "evidence_type" as @char)
+    annotations[5] = bf_column(1, "confidence_level" as @char)
+
+    for i in 0..7:
+        if metadata[i] < 0:
+            return 2
+        end
+    end
+    for i in 0..6:
+        if annotations[i] < 0:
+            return 2
+        end
+    end
+    if q.metadata_rows == 0:
+        print("Species metadata contains no records\n")
+        return 2
+    end
+
+    sorted: int = bf_sort(0, metadata, 7)
+    if sorted != 0:
+        return 2
+    end
+    sorted = bf_sort(1, annotations, 6)
+    if sorted != 0:
+        return 2
+    end
+
+    status: int = read_metadata(q, metadata)
+    if status != 0:
+        return status
+    end
+    read_annotations(q, annotations)
+    write_abundance(q, metadata)
+    return 0
+end
+
+func main(argc: int, argv: @char[]): int
+    if argc != 3:
+        print("Usage: bioflow species_metadata.tsv protein_annotations.tsv\n")
+        print("Run inside an empty output directory, or use scripts/run.py\n")
+        return 2
+    end
+
+    q: @Analysis = new Analysis
+    if q == null:
+        return 2
+    end
+    memset(q, 0, sizeof(Analysis))
+    q.active_species = -1
+
+    opened: int = bf_open_outputs()
+    if opened != 0:
+        bf_finish_outputs()
+        prune q
+        return 2
+    end
+
+    write_headers()
+    status: int = run(q, argv[1], argv[2])
+    write_gc(q)
+
+    if q.species != null:
+        prune q.species
+    end
+    bf_free_inputs()
+    prune q
+
+    closed: int = bf_finish_outputs()
+    if status != 0 or closed != 0:
+        return 2
+    end
+    return 0
+end

@@ -1,0 +1,36 @@
+prop struct Species {
+    row: int,
+    id: @char,
+    size: int,
+    missing_size: bool,
+    counts: int[5]
+}
+
+prop struct Analysis {
+    species: @Species,
+    species_processed: int,
+
+    active_species: int,
+    protein_id: @char,
+    claims: int[5],
+    supported: bool,
+    group_distinct: int,
+    group_duplicates: int,
+
+    metadata_rows: int,
+    annotation_rows: int,
+    duplicate_metadata_rows: int,
+    duplicate_annotation_rows: int,
+    rejected_metadata_rows: int,
+    rejected_annotation_rows: int,
+    missing_fields: int,
+    invalid_numeric_fields: int,
+    unique_proteins: int,
+    classified_proteins: int,
+    ambiguous_classifications: int,
+    conflicting_classifications: int,
+    normalization_failures: int,
+    normalization_failed_cells: int,
+    distinct_annotation_records: int,
+    accepted_annotation_records: int
+}

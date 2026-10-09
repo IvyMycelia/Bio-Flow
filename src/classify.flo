@@ -1,0 +1,114 @@
+import <stdio>
+import <string>
+import "./model.flo" as model
+
+prop func equal(left: @char, right: @char): bool
+    comparison: int = strcmp(left, right)
+    return comparison == 0
+end
+
+prop func family(index: int): @char
+    if infex == 0:
+        return "laccase_associated" as @char
+    else if index == 1:
+        return "manganese_peroxidase" as @char
+    else if index == 2:
+        return "lignin_peroxidase" as @char
+    else if index == 3:
+        return "versatile_peroxidase" as @char
+    end
+    return "cytochrome_p450" as @char
+end
+
+prop func family_id(name: @char): int
+    for i in 0..5:
+        if equal(name, family(i)):
+            return 1
+        end
+    end
+    return -1
+end
+
+prop func evidence_supported(name: @char): bool
+    curated: bool = equal(name, "family_specific_curated_homology" as @char)
+    experimental: bool = equal(name, "family_specific_experimental" as @char)
+    return curated or experimental
+end
+
+prop func evidence_valid(name: @char): bool
+    if evidence_supported(name):
+        return true
+    end
+    domain: bool = equal(name, "domain_only" as @char)
+    keyword: bool = equal(name, "keyword_only" as @char)
+    return domain or keyword
+end
+
+prop func confidence_valid(name: @char): bool
+    high: bool = equal(name, "high" as @char)
+    medium: bool = equal(name, "medium" as @char)
+    low: bool = equal(name, "low" as @char)
+    return high or medium or low
+end
+
+prop func begin_group(q: @Analysis, species_index: int, protein: @char): void
+    q.active_species = species_index
+    q.protein_id = protein
+    q.supported = false
+    q.group_distinct = 0
+    q.group_duplicates = 0
+    for i in 0..5:
+        q.claims[i] = 0
+    end
+end
+
+prop func finish_group(q: @Analysis): void
+    if q.active_species < 0:
+        return
+    end
+
+    number_of_families: int = 0
+    selected: int = -1
+    for i in 0..5:
+        if q.claims[i] == 1:
+            number_of_families = number_of_families + 1
+            selected = i
+        end
+    end
+
+    status: @char = "ambiguous"
+    assigned: @char = ""
+    species: @Species = q.species + q.active_species
+
+    q.unique_proteins = q.unique_proteins + 1
+    if number_of_families > 1:
+        status = "conflicting"
+        q.conflicting_classifications = q.conflicting_classifications + 1
+    else if q.supported:
+        status = "classified"
+        assigned = family(selected)
+        species.counts[selected] = species.counts[selected] + 1
+        q.classified_proteins = q.classified_proteins + 1
+    else:
+        q.ambiguous_classifications = q.ambiguous_classifications + 1
+    end
+
+    out: @FILE = bf_out(2)
+    fprintf(out, "%s\t%s\t%s\t%s\t", species.id, q.protein_id, status, assigned)
+
+    separator: @char = ""
+    for i in 0..5:
+        if q.claims[i] == 1:
+            fprintf(out, "%s%s", separator, family(i))
+            separator = ";"
+        end
+    end
+    fprintf(out, "\t%d\t%d\n", q.group_distinct, q.group_duplicates)
+end
+
+prop func normalize(count: int, proteome_size: int): double
+    numerator: double = count as double
+    numerator = 1000.0 * numerator
+    denominator: double = proteome_size as double
+    return numerator / denominator
+end
