@@ -1,13 +1,97 @@
-# Local Flower compiler
+# Local Flower compiler and dependency checkouts
 /Flower
+/.deps/
 
-# Generated build artifacts
-/bin/bioflo
-/bin/bioflo.c
+# Generated executables, C output, and build manifests
+/bin/
+/build/
+/dist/
 /output/
 
-# Compiled Objects
-*.o
+# Downloaded research data and intermediate files
+/data/raw/
+/data/downloads/
+/data/intermediate/
 
-# macOS metadata
+# Generated analysis results
+/results/
+/gene_family_counts.tsv
+/normalized_features.tsv
+/protein_assignments.tsv
+/diagnostics.tsv
+/qc.tsv
+/qc.json
+/execution.log
+
+# Compiled C artifacts
+*.0
+*.obj
+*.a
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.dSYM/
+*.gcda
+*.gcno
+*.gcov
+*.profraw
+*.profdata
+
+# Python bytecode and packaging artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+
+# Local Python environments
+/.venv/
+/venv/
+/env/
+/ENV/
+.tox/
+.nox/
+
+# Test, analysis, and tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.cache/
+.coverage
+.coverage.*
+/coverage.xml
+/htmlcov/
+
+# Local environment configuration
+.env
+.env.*
+!.env.example
+!.env.template
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+*.bak
+*~
+*.swp
+*.swo
+
+# Personal editor state; retain shareable VS Code configuration
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/tasks.json
+!.vscode/launch.json
+.idea/
+*.code-workspace
+
+# Operating-system metadata
 .DS_Store
+.AppleDouble
+.LSOverride
+._*
+Thumbs.db
+Desktop.ini
