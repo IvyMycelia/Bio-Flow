@@ -209,7 +209,7 @@ static int bf_load(int slot, char *path) {
         t->rows[t->count++] = (BfRow){copy, cells, width, physical_line};
     }
 
-    if (ferror(f)) goto fail;
+    if (ferror(f) || !feof(f)) goto fail;
     {
         int closed = fclose(f);
         f = NULL;

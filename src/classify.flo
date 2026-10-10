@@ -8,7 +8,7 @@ prop func equal(left: @char, right: @char): bool
 end
 
 prop func family(index: int): @char
-    if infex == 0:
+    if index == 0:
         return "laccase_associated" as @char
     else if index == 1:
         return "manganese_peroxidase" as @char
@@ -23,7 +23,7 @@ end
 prop func family_id(name: @char): int
     for i in 0..5:
         if equal(name, family(i)):
-            return 1
+            return i
         end
     end
     return -1

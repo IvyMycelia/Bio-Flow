@@ -1,0 +1,4 @@
+species_id	scientific_name	strain_id	assembly_accession	proteome_size	assembly_completeness	data_source
+A	Synthetic species A	SYN_A	SYN_ASM_A	1000	100.0	synthetic_fixture
+B	Synthetic species B	SYN_B	SYN_ASM_B		100.0	synthetic_fixture
+C	Synthetic species C	SYN_C	SYN_ASM_C	0	100.0	synthetic_fixture

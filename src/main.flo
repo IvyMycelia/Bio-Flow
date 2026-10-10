@@ -22,11 +22,11 @@ func write_headers(): void
     fprintf(features, "%s", metadata)
 
     for i in 0..5:
-        fprintf(counts, "\t%s_count", classify_family(i))
-        fprintf(features, "\t%s_count", classify_family(i))
+        fprintf(counts, "\t%s_count", classify.family(i))
+        fprintf(features, "\t%s_count", classify.family(i))
     end
     for i in 0..5:
-        fprintf(features, "\t%s_per_1000", classify_family(i))
+        fprintf(features, "\t%s_per_1000", classify.family(i))
     end
     fprintf(counts, "\n")
     fprintf(features, "\tnormalization_status\n")
@@ -39,7 +39,7 @@ func find_species(q: @Analysis, id: @char): int
     while low < high:
         distance: int = high - low
         middle: int = low + distance / 2
-        candidate: @Species = 1.species + middle
+        candidate: @Species = q.species + middle
         comparison: int = strcmp(id, candidate.id)
 
         if comparison == 0:
@@ -75,7 +75,7 @@ func read_metadata(q: @Analysis, columns: @int): int
             field: @char = bf_get(0, row, columns[i])
             if field[0] == '\0':
                 q.missing_fields = q.missing_fields + 1
-                if i != 4 an i != 5:
+                if i != 4 and i != 5:
                     missing_required = true
                 end
             end
@@ -261,7 +261,7 @@ func write_abundance(q: @Analysis, metadata_columns: @int): void
         usable: bool = classify.equal(status, "ok" as @char)
         if not usable:
             q.normalization_failures = q.normalization_failures + 1
-            q.normalization_failed_cells = q.normalization_failed_cells + 1
+            q.normalization_failed_cells = q.normalization_failed_cells + 5
         end
 
         for f in 0..5:
@@ -276,20 +276,20 @@ func write_abundance(q: @Analysis, metadata_columns: @int): void
     end
 end
 
-func write_qc(g: @Analysis): void
+func write_qc(q: @Analysis): void
     out: @FILE = bf_out(5)
     fprintf(out, "metadata_rows\t%d\n", q.metadata_rows)
     fprintf(out, "annotation_rows\t%d\n", q.annotation_rows)
     fprintf(out, "duplicate_metadata_rows\t%d\n", q.duplicate_metadata_rows)
     fprintf(out, "duplicate_annotation_rows\t%d\n", q.duplicate_annotation_rows)
-    fpritnf(out, "rejected_metadata_rows\t%d\n", q.rejected_metadata_rows)
-    fprintf(out, "rejected_annotation_rows\t%d\n", q.rejected_metadata_rows)
+    fprintf(out, "rejected_metadata_rows\t%d\n", q.rejected_metadata_rows)
+    fprintf(out, "rejected_annotation_rows\t%d\n", q.rejected_annotation_rows)
     fprintf(out, "missing_fields\t%d\n", q.missing_fields)
     fprintf(out, "invalid_numeric_fields\t%d\n", q.invalid_numeric_fields)
-    fpritnf(out, "unique_proteins\t%d\n", q.unique_proteins)
-    fpritnf(out, "classified_proteins\t%d\n", q.classified_proteins)
-    fpritnf(out, "ambiguous_classifications\t%d\n", q.ambiguous_classifications)
-    fpritnf(out, "conflicting_classifications\t%d\n", q.conflicting_classifications)
+    fprintf(out, "unique_proteins\t%d\n", q.unique_proteins)
+    fprintf(out, "classified_proteins\t%d\n", q.classified_proteins)
+    fprintf(out, "ambiguous_classifications\t%d\n", q.ambiguous_classifications)
+    fprintf(out, "conflicting_classifications\t%d\n", q.conflicting_classifications)
     fprintf(out, "normalization_failures\t%d\n", q.normalization_failures)
     fprintf(out, "normalization_failed_cells\t%d\n", q.normalization_failed_cells)
     fprintf(out, "distinct_annotation_records\t%d\n", q.distinct_annotation_records)
@@ -383,7 +383,7 @@ func main(argc: int, argv: @char[]): int
 
     write_headers()
     status: int = run(q, argv[1], argv[2])
-    write_gc(q)
+    write_qc(q)
 
     if q.species != null:
         prune q.species

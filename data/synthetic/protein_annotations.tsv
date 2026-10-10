@@ -1,0 +1,16 @@
+species_id	protein_id	functional_family	annotation_source	evidence_type	confidence_level
+A	p1	laccase_associated	synthetic_curated	family_specific_curated_homology	high
+A	p1	laccase_associated	synthetic_curated	family_specific_curated_homology	high
+A	p1	laccase_associated	synthetic_assay	family_specific_experimental	medium
+A	p2	manganese_peroxidase	synthetic_curated	family_specific_curated_homology	medium
+A	p2	lignin_peroxidase	synthetic_assay	family_specific_experimental	high
+A	p3	cytochrome_p450	synthetic_curated	family_specific_curated_homology	low
+A	p4	laccase_associated	synthetic_keywords	keyword_only	high
+A	p5	versatile_peroxidase	synthetic_assay	family_specific_experimental	high
+B	p1	manganese_peroxidase	synthetic_curated	family_specific_curated_homology	medium
+C	p1	laccase_associated	synthetic_assay	family_specific_experimental	high
+C	p2	cytochrome_p450	synthetic_domains	domain_only	high
+A	p6	heme_peroxidase	synthetic_domains	domain_only	medium
+	p7	cytochrome_p450	synthetic_curated	family_specific_curated_homology	high
+A		cytochrome_p450	synthetic_curated	family_specific_curated_homology	high
+X	p8	laccase_associated	synthetic_curated	family_specific_curated_homology	high
