@@ -95,3 +95,6 @@ __pycache__/
 ._*
 Thumbs.db
 Desktop.ini
+
+# Generated BLAST databases
+/data/databases/

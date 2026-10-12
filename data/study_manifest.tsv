@@ -1,0 +1,5 @@
+species_id	scientific_name	strain_id	assembly_accession	proteome_file	status
+P_ostreatus_PC9	Pleurotus ostreatus	PC9	GCF_014466165.1	data/raw/pleurotus_ostreatus_PC9/protein.faa	downloaded
+T_versicolor_FP101664_SS1	Trametes versicolor	FP-101664 SS1	GCF_000271585.1	data/raw/trametes_versicolor_FP101664_SS1/protein.faa	downloaded
+P_chrysosporium_RP78	Phanerochaete chrysosporium	RP-78		data/raw/phanerochaete_chrysosporium_RP78/protein.faa	downloaded
+B_adusta_HHB12826	Bjerkandera adusta	HHB-12826-SP SB-22		data/raw/bjerkandera_adusta_HHB12826/protein.faa	downloaded
